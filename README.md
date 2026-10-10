@@ -1,70 +1,45 @@
-# Thermos plugin
+# Thermos for T3 Code
 
-Thermo-nuclear branch review for Cursor agents: deep correctness and security audits, harsh maintainability rubrics, and parallel subagent orchestration.
+Thermo-nuclear branch review for coding agents: a deep correctness and security audit, a harsh maintainability rubric, and `thermos`, which runs both as parallel reviewers and merges their findings. This is Cursor's [thermos](https://github.com/cursor/plugins/tree/main/thermos) plugin adapted to [T3 Code](https://github.com/pingdotgg/t3code), for Claude Code and Codex threads alike.
 
-## Installation
+## Install
 
 ```bash
-/add-plugin thermos
+npx skills add mariusflorescu/thermos-t3 -g -a claude-code -a codex
 ```
 
-## Architecture
+This puts one copy of each skill in `~/.agents/skills/` (Codex reads it there) and a symlink in `~/.claude/skills/` (Claude Code reads it there). Update with `npx skills update -g`. Install globally or per project, not both: when a skill name exists in both places, Codex resolves neither on `$<name>`.
 
-```mermaid
-flowchart TB
-  subgraph L2["Orchestrator"]
-    TH[thermos]
-  end
+## Use
 
-  subgraph L1["Subagents"]
-    SNR[thermo-nuclear-review-subagent]
-    SNCQ[thermo-nuclear-code-quality-review-subagent]
-  end
+| Skill | Use it when |
+|---|---|
+| `/thermos` | You want both reviews of a branch in parallel and one deduplicated verdict. |
+| `/thermo-nuclear-review` | You want a deep audit of a branch's changes for bugs, breakages, security, devex regressions and feature-gate leaks. |
+| `/thermo-nuclear-code-quality-review` | You want a harsh maintainability review: code-judo restructurings, the 1k-line rule, spaghetti growth, boundaries. |
 
-  DIFF[git diff + file contents]
+Codex threads type `$<name>` where this README writes `/<name>`. All three are user-only: they run when you type them, never on their own.
 
-  subgraph L0["Skills"]
-    TNR[thermo-nuclear-review]
-    TNCQ[thermo-nuclear-code-quality-review]
-  end
+## How it works on T3
 
-  TH --> SNR
-  TH --> SNCQ
-  SNR --> TNR
-  SNR --> DIFF
-  SNCQ --> TNCQ
-  SNCQ --> DIFF
-```
+`/thermos` gathers the diff and the changed files, then spawns two `delegate_task` children in one turn. Each child's brief opens with its reviewer file (`references/*-subagent.md` in the matching rubric skill) and the absolute path of that rubric's `SKILL.md`, followed by the diff and file contents. The children run on your thread's model, and their completions wake the parent, which merges the findings.
 
-## Skills
+[T3-NATIVE.md](./T3-NATIVE.md) maps every Cursor mechanism upstream uses to its T3 equivalent. `node scripts/check-t3-native.mjs` enforces it.
 
-| Skill | Description |
-|:------|:------------|
-| `thermo-nuclear-review` | Deep branch audit (bugs, breakages, security, devex, feature-gate leaks). |
-| `thermo-nuclear-code-quality-review` | Strict maintainability audit (code-judo, 1k-line rule, spaghetti, boundaries). |
-| `thermos` | Run both review subagents in parallel and synthesize findings. |
+## Differences from upstream
 
-## Agents
+- Cursor's `Task` subagents become `delegate_task` children. The two agent definitions become briefs inside the skills they serve.
+- Every skill ships `agents/openai.yaml` so Codex hides it like Claude Code does.
+- Dropped: the Cursor plugin manifest and logo.
 
-| Agent | Description |
-|:------|:------------|
-| `thermo-nuclear-review-subagent` | Task subagent for deep review rubric (diff-scoped). |
-| `thermo-nuclear-code-quality-review-subagent` | Task subagent for code-quality rubric (diff-scoped). |
+## Staying current with upstream
 
-## Typical usage
+`UPSTREAM` pins the upstream commit this port matches. A daily T3 schedule on the maintainer's machine diffs `thermos/` in [cursor/plugins](https://github.com/cursor/plugins) from that commit, ports any change through T3-NATIVE.md, runs the checker, and pushes to `main`. [AGENTS.md](./AGENTS.md) holds the rules.
 
-**Double review (thermos):**
+## Credit
 
-1. Gather `git diff main...HEAD` and full contents of changed files.
-2. Invoke both subagents in one message with `run_in_background: true`.
-3. Synthesize prioritized, deduped findings.
-
-**Single skill:** invoke `thermo-nuclear-review` or `thermo-nuclear-code-quality-review` in the main agent, or the matching subagent after gathering diff context.
-
-## Migration from cursor-team-kit
-
-`cursor-team-kit` previously included only `thermo-nuclear-code-quality-review`. That skill and agent now live in **Thermos** alongside deep review and `thermos`. Remove the old thermo entries from team-kit when you install this plugin to avoid duplicates.
+Adapted from [cursor/plugins thermos](https://github.com/cursor/plugins/tree/main/thermos) by Cursor. This port is not affiliated with Cursor.
 
 ## License
 
-MIT
+MIT. [LICENSE](./LICENSE) keeps the upstream copyright notice.
